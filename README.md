@@ -1,7 +1,7 @@
 Note,
     The stack lifts a cluster of kubernetes running mediawiki versioned by bitnami
-    - Requires a domain running on AWS
-    - Requires ssl certificates issued by AWS
+    . Requires a domain running on AWS
+    . Requires ssl certificates issued by AWS
 
 Process:
 
@@ -23,17 +23,17 @@ Process:
 
 6. Configure Ansible vars.
     - 6.1 Edit the file: provision/ansible/vars.yml
-        # Declare the bucket created by terraform with the same name of the variable declared in terraform.tfvars
+        1. Declare the bucket created by terraform with the same name of the variable declared in terraform.tfvars
         kops_create_cluster_state: "s3://kubecluster-state-store.domain.com"
-        # Declare the region where the cluster is raised, it has to coincide with the region declared in terraform.tfvars
+        2. Declare the region where the cluster is raised, it has to coincide with the region declared in terraform.tfvars
         aws_region: "your_region
-        # Declare the bucket created by terraform without the prefix s3://
+        3. Declare the bucket created by terraform without the prefix s3://
         kubernetes_states_bucket: "kubecluster-state-store.domain.com"
-        # Declare the DNS zone as it appears in Route53
+        4. Declare the DNS zone as it appears in Route53
         dns_base: "domain.com"
-        # Declare a domain for the k8s service to be implemented declared in provision/transfer/templates
+        5. Declare a domain for the k8s service to be implemented declared in provision/transfer/templates
         service_domain: "mediawiki.domain.com"
-        # Declare again the region where the cluster is implemented
+        6. Declare again the region where the cluster is implemented
         main_region: "your_region
 
 7. Lift the VM environment from the project root directory and create the kubernetes stack
