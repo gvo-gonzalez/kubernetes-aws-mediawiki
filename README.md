@@ -16,11 +16,11 @@ Process:
 
 5. Configure domain and region on terraform
     - 5.1 Edit the file: provision/terraform/terraform.tfvars and change credentials and domain
-        *.aws_access_key = "your_access_key_id"
-        *.aws_secret_key = "your_secret_key"
-        *.aws_region = "your-region
-        *.kubernetes_states_bucket = "kubecluster-state-store.domain.com" # change 'domain' for the domain
-        *.domain_name = "domain.com or *.domain.com" # As listed in the Amazon Certificate Manager dashboard
+        1.aws_access_key = "your_access_key_id"
+        2.aws_secret_key = "your_secret_key"
+        3.aws_region = "your-region
+        4.kubernetes_states_bucket = "kubecluster-state-store.domain.com" # change 'domain' for the domain
+        5.domain_name = "domain.com or *.domain.com" # As listed in the Amazon Certificate Manager dashboard
 
 6. Configure Ansible vars.
     - 6.1 Edit the file: provision/ansible/vars.yml
@@ -59,12 +59,12 @@ Process:
 8. Access to the cluster by console. All the tools are installed in the VM.
     - 8.1 vagrant ssh
 
-    8.2 Setting up an environment to connect to AWS
+    - 8.2 Setting up an environment to connect to AWS
       -  export AWS_ACCESS_KEY_ID=SARASARASA123
       -  export AWS_SECRET_ACCESS_KEY=s1A2R3a4S5a/ToDOz1A2R3a4Z5a0tr9
       -  export AWS_REGION=xx-sarasa-1
 
-    8.3 Operating the cluster
+    - 8.3 Operating the cluster
        - kubectl get pods -o wide (e.g.)
 
 9. Access to the cluster by dashboard. (via local proxy)
