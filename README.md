@@ -1,5 +1,6 @@
 Note,
     The stack lifts a cluster of kubernetes running mediawiki versioned by bitnami
+    
     *. Requires a domain running on AWS
     *. Requires ssl certificates issued by AWS
 
