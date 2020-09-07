@@ -16,11 +16,12 @@ Process:
 
 5. Configure domain and region on terraform
     - 5.1 Edit the file: provision/terraform/terraform.tfvars and change credentials and domain
-        1.aws_access_key = "your_access_key_id"
-        2.aws_secret_key = "your_secret_key"
-        3.aws_region = "your-region
-        4.kubernetes_states_bucket = "kubecluster-state-store.domain.com" # change 'domain' for the domain
-        5.domain_name = "domain.com or *.domain.com" # As listed in the Amazon Certificate Manager dashboard
+    
+        1. aws_access_key = "your_access_key_id"
+        2. aws_secret_key = "your_secret_key"
+        3. aws_region = "your-region
+        4. kubernetes_states_bucket = "kubecluster-state-store.domain.com" # change 'domain' for the domain
+        5. domain_name = "domain.com or *.domain.com" # As listed in the Amazon Certificate Manager dashboard
 
 6. Configure Ansible vars.
     - 6.1 Edit the file: provision/ansible/vars.yml
