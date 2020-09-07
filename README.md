@@ -102,4 +102,3 @@ Process:
     - 10.5 Enter route53 and delete the automatically generated domain declared in the variable 'service_domain
         - from vars.yml configuration file
 
-Translated with www.DeepL.com/Translator (free version)
