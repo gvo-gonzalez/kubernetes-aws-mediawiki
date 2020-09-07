@@ -24,21 +24,27 @@ Process:
 6. Configure Ansible vars.
     - 6.1 Edit the file: provision/ansible/vars.yml
         1. Declare the bucket created by terraform with the same name of the variable declared in terraform.tfvars
+            
             kops_create_cluster_state: "s3://kubecluster-state-store.domain.com"
         
         2. Declare the region where the cluster is raised, it has to coincide with the region declared in terraform.tfvars
+            
             aws_region: "your_region
         
         3. Declare the bucket created by terraform without the prefix s3://
+            
             kubernetes_states_bucket: "kubecluster-state-store.domain.com"
         
         4. Declare the DNS zone as it appears in Route53
+            
             dns_base: "domain.com"
         
         5. Declare a domain for the k8s service to be implemented declared in provision/transfer/templates
+            
             service_domain: "mediawiki.domain.com"
         
         6. Declare again the region where the cluster is implemented
+            
             main_region: "your_region
 
 7. Setup the VM environment from the project root directory and create the kubernetes stack
@@ -69,6 +75,7 @@ Process:
     - 8.1 vagrant ssh
 
     - 8.2 Setting up an environment to connect to AWS
+      
       -  export AWS_ACCESS_KEY_ID=SARASARASA123
       -  export AWS_SECRET_ACCESS_KEY=s1A2R3a4S5a/ToDOz1A2R3a4Z5a0tr9
       -  export AWS_REGION=xx-sarasa-1
@@ -81,26 +88,31 @@ Process:
     http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/#/login
 
    -  9.2 Obtaining the TOKEN
+        
         - run: vagrant ssh
         - run: cat /hostSharedData/kops-files/dashboard-admin-token-log
 
 10. Clean up kubernetes stack
     - 10.1 Setting up environment to connect to AWS
+        
         - export AWS_ACCESS_KEY_ID=SARASARASA123
         - export AWS_SECRET_ACCESS_KEY=s1A2R3a4S5a/ToDOz1A2R3a4Z5a0tr9
         - export AWS_REGION=xx-sarasa-1
 
     - 10.2 Removing the cluster
+        
         - kops delete cluster --name {{ cluster_name }} --state "{{ cluster_bucket }}" --yes
 
             - cluster_name: value of the variable 'kops_create_cluster_name' in vars.yml
             - cluster_bucket: value of the variable 'kops_create_cluster_state' in vars.yml
 
     - 10.3 Removing resources created by terraform
+        
         - cd /hostSharedData/terraform
         - terraform destroy
 
     - 10.4 Delete keys and generated data:
+       
        - rm -fr /hostSharedData/kops-files
        - rm -fr /hostSharedData/terraform/ssh-keys
        - rm -fr /hostSharedData/terraform/.terraform
@@ -108,5 +120,6 @@ Process:
        - rm -fr /hostSharedData/terraform/terraform.tfstate.backup
 
     - 10.5 Enter route53 and delete the automatically generated domain declared in the variable 'service_domain
+        
         - from vars.yml configuration file
 
