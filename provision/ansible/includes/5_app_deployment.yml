@@ -1,0 +1,151 @@
+- name: get dns zone for the domain configured
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: >
+    aws route53 list-hosted-zones-by-name --output json --dns-name "{{ dns_base }}." | jq -r '.HostedZones[0].Id' | cut -d'/' -f3
+  register: dnsid_output
+
+- debug:
+    msg:
+    - "{{ dnsid_output.stdout }}"
+
+- name: Get K8s Service template 'external-dns.yml' required to link our dns with the cluster
+  template:
+    src: "templates/external-dns.yml.j2"
+    dest: "{{ kops_files_dir }}/external-dns.yml"
+    mode: 0644
+    force: yes
+
+- name: Apply  k8s service deployment for dns configuration
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  command: >
+    kubectl apply -f "{{ kops_files_dir }}"/external-dns.yml
+
+- name: get our acm certificate ARN linked with our domain
+  shell: "cat {{ acm_ssl_data_file }}"
+  register: acm_arn
+
+- debug: 
+    msg:
+    - "acm arn var : {{ acm_arn.stdout_lines[0] }}"
+
+- name: get app_stack deployment file required to install our cluster
+  template:
+    src: "templates/wikiapp-stack.yml.j2"
+    dest: "{{ kops_files_dir }}/wikiapp-stack.yml"
+    mode: 0644
+    force: yes
+
+- name: get app_stack service deployment required to configure DNS's
+  template:
+    src: "templates/wikiapp-dns-service.yml.j2"
+    dest: "{{ kops_files_dir }}/wikiapp-dns-service.yml"
+    force: yes
+    mode: 0644
+
+- name: Apply app stack deployment
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  command: >
+    kubectl apply -f "{{ kops_files_dir }}"/wikiapp-stack.yml 
+
+- name: Apply nginx svc configuration
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  command: >
+    kubectl apply -f "{{ kops_files_dir }}"/wikiapp-dns-service.yml 
+
+- name: get loadbalancer hostname
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  command: >
+    kubectl get svc "{{ kube_lb_svc }}" -o jsonpath="{.status.loadBalancer.ingress[0].hostname}"
+  register: elb_output
+  until: elb_output.stdout != ""
+  retries: 30
+  delay: 10
+
+- debug:
+    msg:
+    - "{{ elb_output.stdout }}"
+
+- name: get LB hosted zone name canonical
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  command: >
+    aws elb describe-load-balancers  --query "LoadBalancerDescriptions[?DNSName=='{{ elb_output.stdout }}'].CanonicalHostedZoneNameID"  --output text --region {{ main_region }}
+  register: elbzone_name_output 
+
+- debug:
+    msg:
+    - "{{ elbzone_name_output.stdout }}"
+
+- name: get LB hosted zone id
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  command: >
+    aws route53 list-hosted-zones --query "HostedZones[?Name=='{{ dns_base }}.'].Id" --output text
+  register: elbzone_id_output
+  
+
+- debug:
+    msg:
+    - "{{ elbzone_id_output.stdout }}"
+
+- name: configure service dns
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell:
+    cmd: |
+      cat << EOF | aws route53 change-resource-record-sets --hosted-zone-id {{ elbzone_id_output.stdout }} --change-batch=file:///dev/stdin
+      {
+          "Comment": "A new record set for the zone.",
+          "Changes": [
+            {
+              "Action": "UPSERT",
+              "ResourceRecordSet": {
+                "Name": "{{ service_domain }}.",
+                "Type": "A",
+                "AliasTarget":{
+                  "HostedZoneId": "{{ elbzone_name_output.stdout }}",
+                  "DNSName": "{{ elb_output.stdout }}",
+                  "EvaluateTargetHealth": false
+                }
+              }
+            }
+          ]
+      }
+      EOF
+
+- name: get dashboard url
+  shell: "cat {{ kops_files_dir }}/dashboard-url-log"
+  register: dashboard_url_output
+
+- debug:
+    msg:
+    - " Dashboard available at: {{ dashboard_url_output.stdout_lines }}"
+
+- name: get dashboard admin token
+  shell: "cat {{ kops_files_dir }}/dashboard-admin-token-log"
+  register: token_output
+
+- debug:
+    msg:
+    - "Dashboar token: {{ token_output.stdout_lines }}"

@@ -1,0 +1,67 @@
+---
+- name: do terraform stuff required to create kops cluster on AWS
+  terraform:
+    project_path: "{{ terraform_project_path }}"
+    state: present
+    force_init: true
+
+- name: get availability zones_1
+  shell: "cat /tmp/avz1"
+  register: avz1file_output
+
+- name: get  availability zones
+  shell: "cat /tmp/avz2"
+  register: avz2file_output
+
+- name: get  availability zones
+  shell: "cat /tmp/avz3"
+  register: avz3file_output
+
+- debug:
+    msg:
+    - "{{ avz1file_output.stdout_lines[0] }}, {{ avz2file_output.stdout_lines[0] }}, {{ avz3file_output.stdout_lines[0] }}"
+
+- name: get access key
+  shell: "cat {{ dest_access_key }}"
+  register: a_key 
+
+- debug: 
+    msg:
+    - "aws var : {{ a_key.stdout_lines[0] }}"
+
+- name: get secret key
+  shell: "cat {{ dest_secret_key }}"
+  register: s_key
+
+- debug: 
+    msg:
+    - "aws var : {{ s_key.stdout_lines[0] }}"
+
+- name: check if we have created our ssh-keys directory
+  stat:
+    path: "{{ ssh_keys_dir }}" 
+  register: sshkeys_path
+
+- name: create directory if not exists
+  file:
+    path: "{{ ssh_keys_dir }}"
+    state: directory
+    mode: 0644
+  when: not sshkeys_path.stat.exists
+
+- name: generate ssh key to loggin into our cluster
+  openssh_keypair:
+    path: "{{ ssh_keys_dir }}/{{ sshkey_name }}"
+    type: rsa
+    size: 2048
+    state: present
+    force: no
+
+- name: copy private key to non priviliged user .ssh home directory
+  copy:
+    remote_src: yes
+    src: "{{ ssh_keys_dir }}/{{ sshkey_name }}"
+    dest: "{{ local_user_home_dir }}/.ssh/{{ sshkey_name }}"
+    owner: "{{ local_user }}"
+    group: "{{ local_user }}"
+    mode: 0400

@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mediawikidb
+spec:
+  selector:
+    matchLabels:
+      db: {{ mediawikidbhost }}
+      tier: backend
+      track: stable
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        db: {{ mediawikidbhost }}
+        tier: backend
+        track: stable
+    spec:
+      containers:
+        - image: bitnami/mariadb:latest
+          name: mediawikidb
+          env:
+          - name: MARIADB_DATABASE
+            value: "{{ mediawikidbname }}"
+          - name: MARIADB_USER
+            value: "{{ mediadbwikiuser }}"
+          - name: MARIADB_PASSWORD
+            value: "{{ mediadbwikipass }}"
+          - name: ALLOW_EMPTY_PASSWORD
+            value: 'yes'
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ mediawikidbhost }}
+spec:
+  type: ClusterIP
+  ports:
+    - targetPort: {{ mysql_pod_port }}
+      port: 3306
+      name: mariadb
+
+  selector:
+    db: {{ mediawikidbhost }}
+    tier: backend
+    track: stable
+
+--- 
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: {{ kube_lb_svc }}
+spec: 
+  replicas: 1
+  selector: 
+    matchLabels: 
+      app: {{ kube_lb_svc }}
+      tier: frontend
+      track: stable
+  template: 
+    metadata: 
+      labels: 
+        app: {{ kube_lb_svc }}
+        tier: frontend
+        track: stable
+    spec: 
+      containers: 
+        - image: "bitnami/mediawiki:latest"
+          name: {{ kube_lb_svc }}
+          ports: 
+            - containerPort: {{ http_pod_port }}
+              name: http
+          env: 
+          - name: MEDIAWIKI_DATABASE_HOST
+            value: "{{ mediawikidbhost }}"
+          - name: MEDIAWIKI_HOST
+            value: "{{ service_domain }}"
+          - name: MEDIAWIKI_DATABASE_NAME
+            value: "{{ mediawikidbname }}"
+          - name: MEDIAWIKI_DATABASE_USER
+            value: "{{ mediadbwikiuser }}"
+          - name: MEDIAWIKI_DATABASE_PASSWORD
+            value: "{{ mediadbwikipass }}"
+          - name: MEDIAWIKI_USERNAME
+            value: "{{ wikilogin }}"
+          - name: MEDIAWIKI_PASSWORD
+            value: "{{ wikiloginpass }}"
+          - name: MEDIAWIKI_EMAIL
+            value: "{{ wikiloginemail }}"
+          - name: MEDIAWIKI_WIKI_NAME
+            value: "{{ wikisitename }}"
+          

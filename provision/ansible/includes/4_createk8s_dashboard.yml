@@ -1,0 +1,119 @@
+- name: give kubectl access to a non priviliged user
+  copy:
+    remote_src: yes
+    src: "{{ kube_config_file }}"
+    dest: "{{ local_user_home_dir }}/"
+    owner: "{{ local_user }}"
+    group: "{{ local_user }}"
+    mode: u=xrw,g=xr,o=x
+
+- name: create kops-files directory
+  file:
+    path: "{{ kops_files_dir }}"
+    state: directory
+
+- name: setup k8s dashboard
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: "{{ item }}"
+  with_items:
+    - kubectl apply -f "{{ dashboard_git_url }}"
+
+- name: Append dashboard label to print at last step
+  lineinfile:
+    path: "{{ kops_files_dir }}/dashboard-url-log"
+    line: "K8S DASHBOARD URL: {{ k8s_dashboard }}"
+    create: yes
+
+- name: Kill Dashboard Process - 1. Get running process
+  shell: "ps -ef | grep -v grep | grep -w {{ proxy_process }} | awk '{print $2}'"
+  register: running_processes
+
+- name: Kill Dashboard Process - 2. Kill running process
+  shell: "kill {{ item }}"
+  with_items: "{{ running_processes.stdout_lines }}"
+
+- wait_for:
+    path: "/proc/{{ item }}/status"
+    state: absent
+  with_items: "{{ running_processes.stdout_lines }}"
+  ignore_errors: yes
+  register: killed_processes
+
+- name: Force kill stuck processes
+  shell: "kill -9 {{ item }}"
+  with_items: "{{ killed_processes.results | select('failed') | map(attribute='item') | list }}"
+
+- name: setup k8s dashboard - namespace -> kubernetes-dashboard and not kube-system
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: >
+    nohup kubectl proxy --address='0.0.0.0' </dev/null >/dev/null 2>&1 &
+
+- name: check if exists a service account for our dashboard user
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: >
+    kubectl get serviceaccount dashboard-admin -o jsonpath="{.secrets[0].name}"
+  register: check_svcinfo
+  ignore_errors: yes
+  no_log: True
+
+- name: setup k8s dashboard - service account and role bind
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: >
+    kubectl create serviceaccount dashboard-admin
+  when: "'NotFound' in check_svcinfo.stderr"
+
+- name: check if exists a rolebinding for our dashboard user
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: >
+    kubectl get clusterrolebinding dashboard-admin -o jsonpath="{.secrets[0].name}"
+  register: check_svcrole
+  ignore_errors: yes
+  no_log: True
+
+- name: setup k8s dashboard - service account and role bind
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: >
+    kubectl create clusterrolebinding dashboard-admin --clusterrole=cluster-admin --serviceaccount=default:dashboard-admin
+  when: "'NotFound' in check_svcrole.stderr"
+
+- name: setup k8s dashboard - service account and role bind
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: >
+    kubectl get serviceaccount dashboard-admin -o jsonpath="{.secrets[0].name}"
+  register: svcinfo
+
+- name: remove token-file-log so we can log the last token created
+  file:
+    path: "{{ kops_files_dir }}/dashboard-admin-token-log"
+    state: absent
+
+- name: get dns zone for the domain configured
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: >
+    kubectl get secret {{ svcinfo.stdout }} -o jsonpath="{.data.token}" | base64 --decode > "{{ kops_files_dir }}/dashboard-admin-token-log"
+    creates="{{ kops_files_dir }}/dashboard-admin-token-log"
+  register: token_output

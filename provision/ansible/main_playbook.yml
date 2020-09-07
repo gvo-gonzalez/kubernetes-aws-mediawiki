@@ -1,0 +1,12 @@
+---
+- hosts: kopsboxes
+  become: True
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - include: includes/1_base_pkgs.yml
+    - include: includes/2_terraform_resources.yml
+    - include: includes/3_createK8s_cluster.yml
+    - include: includes/4_createk8s_dashboard.yml
+    - include: includes/5_app_deployment.yml

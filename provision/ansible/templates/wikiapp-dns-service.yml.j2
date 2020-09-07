@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mediawiki
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ service_domain }}.
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: {{ acm_arn.stdout_lines[0] }}
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    name: http
+    targetPort: {{ http_pod_port }}
+  - name: https
+    port: 443
+    targetPort: http
+  selector:
+    app: {{ kube_lb_svc }}
+    tier: frontend
+    track: stable

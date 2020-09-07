@@ -1,0 +1,43 @@
+---
+- name: install required software
+  apt:
+    name: ['zip', 'unzip', 'awscli']
+    state: present
+    update_cache: yes
+
+- name: get KOPS binary file
+  shell: > 
+    curl -Lo /tmp/kops.amd https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64
+    creates=/tmp/kops.amd
+
+- name: configure globally access to kops cmd
+  copy: 
+    src: /tmp/kops.amd
+    dest: /usr/local/bin/kops
+    mode: 0755
+    remote_src: yes
+
+- name: get KUBECTL binary
+  shell: >
+    curl -Lo /tmp/kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+    creates=/tmp/kubectl
+
+- name: configure global access to kubectl cmd
+  copy:
+    src: /tmp/kubectl
+    dest: /usr/local/bin/kubectl
+    mode: 0755
+    remote_src: yes
+
+- name: get TERRAFORM binary
+  get_url:
+    url: https://releases.hashicorp.com/terraform/0.12.24/terraform_0.12.24_linux_amd64.zip
+    dest: /tmp/terraform_0.12.24_linux_amd64.zip
+    mode: 0644
+
+- name: configure global access for terraform binary
+  unarchive:
+    src: /tmp/terraform_0.12.24_linux_amd64.zip
+    dest: /usr/local/bin/
+    mode: 0755
+    remote_src: yes

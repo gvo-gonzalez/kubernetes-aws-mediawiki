@@ -1,0 +1,93 @@
+---
+- name: check if we have our cluster up
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: > 
+    kops validate cluster --name "{{ kops_create_cluster_name }}" --state "{{ kops_create_cluster_state }}" > /dev/null
+  register: cluster_status
+  ignore_errors: yes
+  no_log: True
+
+- name: create cluster when not state and name are available
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: "{{ item }}"
+  with_items:
+    - kops create cluster 
+      --state "{{ kops_create_cluster_state }}" 
+      --zones "{{ avz1file_output.stdout_lines[0] }},{{ avz2file_output.stdout_lines[0] }},{{ avz3file_output.stdout_lines[0] }}"  
+      --master-count "{{ kops_create_cluster_master_count }}"
+      --master-size="{{ kops_create_cluster_master_size }}" 
+      --node-count "{{ kops_create_cluster_node_count }}" 
+      --node-size="{{ kops_create_cluster_node_size }}"
+      --name "{{ kops_create_cluster_name }}"
+      --dns-zone "{{ dns_base }}"
+      --ssh-public-key  "{{ ssh_keys_dir }}/{{ sshkey_name }}.pub"
+      --topology private 
+      --networking calico
+  register: create_cluster
+  when: (cluster_status.rc == 1)  
+  ignore_errors: yes
+  no_log: True
+
+- name: update cluster configuration request
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: > 
+    kops update cluster --name "{{ kops_create_cluster_name }}" --state "{{ kops_create_cluster_state }}" --yes
+  when: ("'kops update cluster' in item.stderr") and ( create_cluster.results is defined )
+  loop: "{{ create_cluster.results }}"
+  no_log: True
+
+- name: create secret for the cluster
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  command: "{{ item }}" 
+  with_items:
+    - kops create secret --name "{{ kops_create_cluster_name }}" sshpublickey admin -i "{{ ssh_keys_dir }}/{{ sshkey_name }}.pub" --state "{{ kops_create_cluster_state }}"
+
+- name: update cluster configuration request
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  command: "{{ item }}" 
+  with_items:
+    - kops update cluster --name "{{ kops_create_cluster_name }}" --state "{{ kops_create_cluster_state }}" --yes
+
+- name: waiting while we have available our stack
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: > 
+    kops validate cluster --name "{{ kops_create_cluster_name }}" --state "{{ kops_create_cluster_state }}" > /dev/null
+  register: result
+  until: result.rc == 0
+  retries: 20
+  delay: 30
+
+- name: get cluster info
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ a_key.stdout_lines[0] }}"
+    AWS_SECRET_ACCESS_KEY: "{{ s_key.stdout_lines[0] }}"
+    AWS_REGION: "{{ aws_region }}"
+  shell: >
+    kops validate cluster --name "{{ kops_create_cluster_name }}" --state "{{ kops_create_cluster_state }}" > /tmp/validate_cluster.txt
+    creates=/tmp/validate_cluster.txt
+
+- name: print  cluster information
+  shell: "cat /tmp/validate_cluster.txt"
+  register: cluster_output
+
+- debug:
+    msg:
+    - "{{ cluster_output.stdout_lines }}"
