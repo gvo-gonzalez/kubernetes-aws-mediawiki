@@ -10,9 +10,7 @@ Process:
 
 2. Install Ansible
 
-3. Decompress the file kops-lab.tar.gz
-
-4. kops-lab cd
+3. Clone this project
 
 5. Configure domain and region on terraform
     - 5.1 Edit the file: provision/terraform/terraform.tfvars and change credentials and domain
@@ -26,33 +24,43 @@ Process:
 6. Configure Ansible vars.
     - 6.1 Edit the file: provision/ansible/vars.yml
         1. Declare the bucket created by terraform with the same name of the variable declared in terraform.tfvars
-        kops_create_cluster_state: "s3://kubecluster-state-store.domain.com"
+            kops_create_cluster_state: "s3://kubecluster-state-store.domain.com"
+        
         2. Declare the region where the cluster is raised, it has to coincide with the region declared in terraform.tfvars
-        aws_region: "your_region
+            aws_region: "your_region
+        
         3. Declare the bucket created by terraform without the prefix s3://
-        kubernetes_states_bucket: "kubecluster-state-store.domain.com"
+            kubernetes_states_bucket: "kubecluster-state-store.domain.com"
+        
         4. Declare the DNS zone as it appears in Route53
-        dns_base: "domain.com"
+            dns_base: "domain.com"
+        
         5. Declare a domain for the k8s service to be implemented declared in provision/transfer/templates
-        service_domain: "mediawiki.domain.com"
+            service_domain: "mediawiki.domain.com"
+        
         6. Declare again the region where the cluster is implemented
-        main_region: "your_region
+            main_region: "your_region
 
-7. Lift the VM environment from the project root directory and create the kubernetes stack
+7. Setup the VM environment from the project root directory and create the kubernetes stack
     - 7.1 Lifting the virtual machine
+        
         vagrant up
 
     - 7.2 Changing permissions of the key you use to connect to the virtual machine
         chmod 0400 ssh-cfg/insecure_private_key
 
     - 7.3 Verify ansible connectivity with the created vm
+        
         ansible all -m ping
 
     - 7.4 If there are no errors when executing ping to vm, we can raise the cluster by executing:
+        
         ansible-playbook provision/ansible/main_playbook.yml
 
     - 7.5 Once the process is completed and if there were no errors, you can verify the installation by accessing the url:
+        
         service_domain: "mediawiki.domain.com"
+        
         login:
                 - wikilogin: "wiki_user" # variable declared in vars.yml
                 - wikiloginpass: "wiki_user2020" # variable declared in vars.yml
